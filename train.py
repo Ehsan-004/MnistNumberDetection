@@ -8,51 +8,58 @@ import sys
 import os
 
 
+def print_confusion_matrix(true_labels, pred_labels):
+    cm = metrics.confusion_matrix(true_labels, pred_labels)
+    disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
+    disp.plot(cmap=plt.cm.Blues, xticks_rotation='vertical')
+    plt.show()
+
+def print_classification_report(true_labels, pred_labels):
+    clr = metrics.classification_report(true_labels, pred_labels)
+    print("\n=== Classification Report ===\n")
+    print(clr)  
+
+
+
+class MnistModel:
+    def __init__(self, x_train, y_train, model=svm.SVC(kernel="rbf")):
+
+        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Preprocessing training data before training the model')
+
+        self.scaler = preprocessing.StandardScaler()
+        self.x_train = self.scaler.fit_transform(x_train.astype(float))
+        self.y_train = y_train
+        self.model = model
+
+        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Training the model')
+
+        t = time.time()
+        self.model.fit(self.x_train, y_train)
+
+        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Model has been trained after {time.time()-t:.2f} s')
+
+    def testModel(self, x_test, y_test, *metrics):
+        self.x_test = self.scaler.transform(x_test.astype(float))
+        self.y_test = y_test
+        predicted_labels = self.model.predict(self.x_test)
+
+        map(lambda metric: metric(self.y_test, predicted_labels), metrics)
+
+    def getModel(self):
+        return self.model
+            
+
 
 def main():
     dset = dataset.Dataset("data\\train.csv", "data")
     data = dset.getData()
+
+    mnistModel = MnistModel(*data)
     
-
-    clf = svm.SVC(kernel="rbf")
-    x = data[0]
-
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Preprocessing training data before training the model')
-
-    x = preprocessing.StandardScaler().fit(x).transform(x.astype(float))
-
-    t1 = time.time()
-
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Training the model')
-    
-    clf.fit(x, data[1])
-    t2 = time.time()
-
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Model has been trained after {t2-t1:.2f} s')
-
-
     dset_test = dataset.Dataset("data\\test.csv", "data")
     data_test = dset_test.getData()
 
-    x_test = data_test[0]
-    x_test = preprocessing.StandardScaler().fit(x_test).transform(x_test.astype(float))
-
-    predict_label = clf.predict(x_test)
-
-    fs = metrics.f1_score(data_test[1], predict_label, average="micro")
-    print(f"f1 score: {fs}")
-    clr = metrics.classification_report(data_test[1], predict_label)
-    print(f"classification report: {clr}")
-    cm = metrics.confusion_matrix(data_test[1], predict_label)
-    disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
-    disp.plot(cmap=plt.cm.Blues, xticks_rotation='vertical')
-    plt.show()
-    
-    # cm = metrics.confusion_matrix(data_test[1], predict_label)
-
-    # disp = metrics.ConfusionMatrixDisplay(cm)
-    # disp.plot()
-    # plt.show()
+    mnistModel.testModel(*data_test, print_classification_report, print_confusion_matrix)
 
 
 
