@@ -4,10 +4,16 @@ from PIL import Image
 import pandas as pd
 import numpy as np
 import time
+import sys
+import os
+from pathlib import Path
 
 
-def create_csv_file(path, label):
-    image_paths = glob(path + "\\" + str(label) + "\\" + f"*.jpg")
+def create_csv_file(path_to_main_dir, label, extension):
+    
+    image_paths = glob(os.path.join(path_to_main_dir, str(label), f"*.{extension}"))
+
+    list(map(lambda p: os.path.normpath(p), list(Path(path_to_main_dir).rglob(extension))))
     
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {len(image_paths)} files are ready to process in {path}')
 
@@ -25,9 +31,10 @@ def process_files(path, file_name):
     for i in range(2):
         tt = time.time()
         print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] processing files with label: {i}')
-        result.update(create_csv_file(path, i))
+        result.update(create_csv_file(os.path.normpath(path), i))
         ttt = time.time()
         print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] processing files with label: {i} after {ttt-tt:.2f} s is done!')
+
 
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] writing data to disk')
     pd.DataFrame({
@@ -39,23 +46,27 @@ def process_files(path, file_name):
 
 
 def read_path_labels(path):
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] processing file {path}')
+    t1 = time.time()
     df = pd.read_csv(path)
     imgs_paths = list(df['path'])
     labels = list(df['label'].apply(str))
-    
+    t2 = time.time()
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] process completed after {t2-t1:.2f} s')
     return imgs_paths, labels
 
 
 def load_image(path):
     image = Image.open(path)
-    array_image = np.array(image).reshape(1, -1)
+    array_image = np.array(image).reshape(-1)
     return array_image
 
 
-
 class Dataset:
-    def __init__(self, csv_path):
+    def __init__(self, csv_path, data_directory):
         self.paths, self.labels = read_path_labels(csv_path)
+        self.dataDir = os.path.normpath(data_directory)
+        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Dataset instance is created and data is loaded to ram ...')
 
 
     def getLen(self):
@@ -64,7 +75,7 @@ class Dataset:
 
     def getImage(self, index):
         item = {
-            "image": load_image(self.paths[index]),
+            "image": load_image(os.path.join(self.dataDir, self.paths[index])),
             "label": self.labels[index]
         }
         return item
@@ -74,22 +85,22 @@ class Dataset:
         images = [] 
         labels = []
         
-        for i in range(10): #(self.getLen()):
+        for i in range(self.getLen()): #(self.getLen()):
             d = self.getImage(i)
             images.append(d["image"])
             labels.append(d["label"])
         
-        return images, labels
+        return np.array(images), np.array(labels)
 
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  
     from pprint import pprint
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] start')
+    t1 = time.time()
+    t = Dataset("data\\train.csv", "data")
+    f = t.getData()
+    print(f[0][:5])
 
-    # for p in ["train", "test", "valid"]:
-        # process_files(p, f"{p}.csv")
-
-    t = Dataset("valid.csv")
-        # for i in range(7):
-    pprint(t.getData())
-        # print("=-=-=-=-=-=-=-=-=-=-=-=-=-=-==")
+    t2 = time.time()
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] done after {t2-t1:.2f} s')
