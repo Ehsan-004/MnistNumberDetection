@@ -12,6 +12,7 @@ from pathlib import Path
 
 
 def create_csv_file(path_to_main_dir, label, extension):
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] processing files with label: {label}')
     
     # image_paths = glob(os.path.join(path_to_main_dir, str(label), f"*.{extension}"))
 
@@ -22,11 +23,12 @@ def create_csv_file(path_to_main_dir, label, extension):
     
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {len(image_paths)} files are ready to process in {path_to_main_dir}')
 
-    d = dict()
-    for pat in image_paths:
-        d[pat] = label
+    # d = dict()
+    # for pat in image_paths:
+    #     d[pat] = label
     
-    return d
+    return image_paths, [label] * len(image_paths)
+
 
 
 def process_files(path, csv_file_name):
@@ -34,27 +36,36 @@ def process_files(path, csv_file_name):
 
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] operations started. processing directory: {path}')
 
-    result = dict()
-    for i in tqdm(range(10)):
-        tt = time.time()
+    # result = dict()
 
-        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] processing files with label: {i}')
+    args = [(path, i, "jpg") for i in range(10)]
 
-        result.update(create_csv_file(os.path.normpath(path), i, "jpg"))
-        ttt = time.time()
+    oip = list()
+    oil = list()
 
-        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] processing files with label: {i} after {ttt-tt:.2f} s is done!')
+    with Manager() as manager:
+        image_pathes = manager.list()
+        image_labels = manager.list()
+        with Pool(os.cpu_count()) as p: 
+            res = p.starmap(create_csv_file, args)
 
+        for paths, labels in tqdm(res):
+            image_pathes.extend(paths)
+            image_labels.extend(labels)
+
+        oip = list(image_pathes)
+        oil = list(image_labels)
 
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] writing data to disk')
 
     pd.DataFrame({
-        "path": result.keys(),
-        "label": result.values()
+        "path": oip,
+        "label": oil
     }).to_csv(csv_file_name, index=False)
     t2 = time.time()
 
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] operation for {path} finished after {t2-t1:.2f} s')
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] operation for {path} finished after {t2-t1:.2f} s')    
+   
 
 
 def read_path_labels(path):
