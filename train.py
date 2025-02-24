@@ -47,19 +47,33 @@ class MnistModel:
 
     def getModel(self):
         return self.model
+    
+    def getSceler(self):
+        return self.scaler
             
 
 
 def main():
     dset = dataset.Dataset("data\\train.csv", "data")
+    print(dset.getLen())
     data = dset.getData()
 
-    mnistModel = MnistModel(*data)
+    print(data[0][:5])  
+
+    print("len")
+    print(len(data[0]))
+    print(len(data[1]))
+    print()
+
+    mnistModel = MnistModel(data[0], data[1])
+    # mnistModel = MnistModel(*data)
     
     dset_test = dataset.Dataset("data\\test.csv", "data")
+    print(dset_test.getLen())
     data_test = dset_test.getData()
 
-    mnistModel.testModel(*data_test, print_classification_report, print_confusion_matrix)
+    print("now printssss")
+    mnistModel.testModel(data_test[0], data_test[1], print_classification_report, print_confusion_matrix)
 
 
 
