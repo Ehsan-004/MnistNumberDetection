@@ -1,4 +1,4 @@
-from multiprocessing import Pool, Manager
+from multiprocessing import Pool, Manager, cpu_count
 from datetime import datetime
 from glob import glob
 from tqdm import tqdm
@@ -46,12 +46,13 @@ def process_files(path, csv_file_name):
     with Manager() as manager:
         image_pathes = manager.list()
         image_labels = manager.list()
-        with Pool(os.cpu_count()) as p: 
-            res = p.starmap(create_csv_file, args)
+        with Pool(os.cpu_count()) as p:
+            results = p.starmap_async(create_csv_file, args)
 
-        for paths, labels in tqdm(res):
-            image_pathes.extend(paths)
-            image_labels.extend(labels)
+            # استفاده از tqdm برای نمایش پردازش همزمان
+            for paths, labels in tqdm(results.get(), total=len(args), desc="Processing Labels", unit="label"):
+                image_pathes.extend(paths)
+                image_labels.extend(labels)
 
         oip = list(image_pathes)
         oil = list(image_labels)
@@ -107,17 +108,38 @@ class Dataset:
             "label": self.labels[index]
         }
         return item
+    
+    def getImageSecondFormat(self, index):
+        image_path = os.path.normpath(os.path.join(self.dataDir, self.paths[index]))
+
+        return load_image(image_path),self.labels[index]
 
 
     def getData(self):  # (list of images, list of labels)
         images = [] 
         labels = []
+        args = [(i,) for i in range(self.getLen())]
+
+        t1 = time.time()
+        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Preparing {len(args)} image indices for processing...')
         
-        for i in tqdm(range(self.getLen())): #(self.getLen()):
-            d = self.getImage(i)
-            images.append(d["image"])
-            labels.append(d["label"])
+        with Manager() as manager:
+            _images = manager.list()
+            _labels = manager.list()
+
+            with Pool(os.cpu_count()) as p:
+                result = p.starmap(self.getImageSecondFormat, args)
+            
+                for img, lbl in result:
+                    _images.append(img)
+                    _labels.append(lbl)
+
+            images = list(_images)
+            labels = list(_labels)
         
+        t2 = time.time()
+        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] processing images is completed after {t2-t1:.2f} s')
+
         return np.array(images), np.array(labels)
     
     def getValueCounts(self):
@@ -129,19 +151,19 @@ class Dataset:
 
 if __name__ == "__main__":  
     from pprint import pprint
+    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] start')
 
     process_files("data/train", "data/train.csv")
     process_files("data/test", "data/test.csv")
     
 
-    print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] start')
-    t1 = time.time()
-    t = Dataset("data\\train.csv", "")
-    f = t.getData()
+    # t1 = time.time()
+    # t = Dataset("data\\train.csv", "")
+    # f = t.getData()
 
-    print(f[0][:5])
+    # print(f[0][:5])
 
-    pprint(t.getValueCounts())
+    # pprint(t.getValueCounts())
 
     t2 = time.time()
     print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] done after {t2-t1:.2f} s')
