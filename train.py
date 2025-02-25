@@ -2,7 +2,9 @@ from sklearn import svm, metrics, preprocessing
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pprint import pprint
+from pathlib import Path
 import dataset
+import joblib
 import time
 import sys
 import os
@@ -43,38 +45,41 @@ class MnistModel:
         self.y_test = y_test
         predicted_labels = self.model.predict(self.x_test)
 
-        map(lambda metric: metric(self.y_test, predicted_labels), metrics)
+        for metric in metrics:
+            metric(self.y_test, predicted_labels)
 
     def getModel(self):
         return self.model
     
     def getSceler(self):
         return self.scaler
+
+    def saveModel(self, path):
+        new_path = str(Path(path).with_suffix(".pkl"))
+        joblib.dump(self.model, new_path)
+        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Model has been saved in : {new_path}')
+    
+    def saveScaler(self, path):
+        new_path = str(Path(path).with_suffix(".pkl"))
+        joblib.dump(self.scaler, new_path)
+        print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Scaler has been saved in : {new_path}')
+
             
 
 
 def main():
-    dset = dataset.Dataset("data\\train.csv", "data")
-    print(dset.getLen())
+    dset = dataset.Dataset("data\\train.csv", "")
     data = dset.getData()
 
-    print(data[0][:5])  
+    mnistModel = MnistModel(*data)
 
-    print("len")
-    print(len(data[0]))
-    print(len(data[1]))
-    print()
-
-    mnistModel = MnistModel(data[0], data[1])
-    # mnistModel = MnistModel(*data)
+    mnistModel.saveModel("model.pkl")
+    mnistModel.saveScaler("scaler.pkl")
     
-    dset_test = dataset.Dataset("data\\test.csv", "data")
-    print(dset_test.getLen())
+    dset_test = dataset.Dataset("data\\test.csv", "")
     data_test = dset_test.getData()
 
-    print("now printssss")
-    mnistModel.testModel(data_test[0], data_test[1], print_classification_report, print_confusion_matrix)
-
+    mnistModel.testModel(*data_test, print_classification_report, print_confusion_matrix)
 
 
 if __name__ == "__main__":
